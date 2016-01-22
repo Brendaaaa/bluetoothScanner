@@ -35,7 +35,8 @@
             android:text="save"
             android:id="@+id/button"
             android:layout_weight="2"
-            android:onClick="WriteBtn" />
+            android:onClick="WriteBtn"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <ListView
@@ -44,4 +45,4 @@
             android:layout_height="wrap_content">
         </ListView>
     </LinearLayout>
-<!-- From: file:/Users/brendaramires/Downloads/BLE%20scan/app/src/main/res/layout/activity_main.xml -->
+<!-- From: file:/Users/brendaramires/bluetoothScanner/BLE%20scan/app/src/main/res/layout/activity_main.xml -->

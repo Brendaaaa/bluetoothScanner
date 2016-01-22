@@ -2,8 +2,8 @@ package com.scan.out;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -13,48 +13,44 @@ import android.widget.Toast;
 import com.scan.bleexample.R;
 import com.scan.out.BluetoothHandler.OnScanListener;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-
 public class MainActivity extends Activity {
 
-
-	private EditText addDeviceName;
-	static final int BUFFER_SIZE = 100;
 	private Button scanButton;
-	private ListView bleDeviceListView;
-	private BLEDeviceListAdapter listViewAdapter;
-
-	private BLEDeviceListAdapter mDevListAdapter;
-
+	private EditText deviceNameEditText;
+	private ListView deviceListView;
+	private DeviceListAdapter listViewAdapter;
 	private BluetoothHandler bluetoothHandler;
+	private int regionNumber;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		addDeviceName = (EditText)findViewById(R.id.deviceName);
-
+		deviceNameEditText = (EditText)findViewById(R.id.deviceName);
 		scanButton = (Button) findViewById(R.id.scanButton);
-		bleDeviceListView = (ListView) findViewById(R.id.bleDeviceListView);
-		listViewAdapter = new BLEDeviceListAdapter(this);
+		deviceListView = (ListView) findViewById(R.id.bleDeviceListView);
 
 
-		mDevListAdapter = new BLEDeviceListAdapter(this);
+		Intent intent = getIntent();
+		if (intent != null) {
+			regionNumber = intent.getIntExtra("regionNumber", -1);
+		}
+		listViewAdapter = new DeviceListAdapter(this, regionNumber);
+		bluetoothHandler = new BluetoothHandler(this, listViewAdapter);
 
-		initDevListAdapter();
+		System.out.println("Numero da regiao: " + regionNumber);
 
-		bluetoothHandler = new BluetoothHandler(this, mDevListAdapter);
+		deviceListView.setAdapter(bluetoothHandler.getDeviceListAdapter());
+
+		BluetoothApplication app = (BluetoothApplication)getApplication();
+		app.setBluetoothHandler(bluetoothHandler);
+
+		startService(new Intent(this, BluetoothService.class));
 
 	}
 
 	public void scanOnClick(final View v){
-		bleDeviceListView.setAdapter(bluetoothHandler.getDeviceListAdapter());
+		deviceListView.setAdapter(bluetoothHandler.getDeviceListAdapter());
 		bluetoothHandler.setOnScanListener(new OnScanListener() {
 			@Override
 			public void onScanFinished() {
@@ -68,7 +64,7 @@ public class MainActivity extends Activity {
 			}
 		});
 		((Button)v).setText("scanning");
-		System.out.println("out = " + mDevListAdapter.getCount());
+		System.out.println("out = " + listViewAdapter.getCount());
 				((Button) v).setEnabled(false);
 		bluetoothHandler.scanLeDevice(true);
 	}
@@ -79,73 +75,14 @@ public class MainActivity extends Activity {
 
 	// write text to file
 	public void WriteBtn(View v) {
-		if (addDeviceName.getText().toString().length() > 17) {
-			String deviceAddress = addDeviceName.getText().toString().toUpperCase().substring(0, 17);
+		if (deviceNameEditText.getText().toString().length() > 17) {
+			String deviceAddress = deviceNameEditText.getText().toString().toUpperCase().substring(0, 17);
 
 			if (deviceAddress.matches("([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})")) {
-				String name= addDeviceName.getText().toString().substring(17);
-				mDevListAdapter.addDevice(deviceAddress, name);
-				writeToFile(deviceAddress + " " + name + "\n");
+				String name= deviceNameEditText.getText().toString().substring(17);
+				listViewAdapter.addDevice(deviceAddress, name);
 			}
 		}
-
-	}
-
-
-	public void writeToFile(String text){
-
-		// add-write text into file
-		try {
-			FileOutputStream fileout=openFileOutput("devices.txt", MODE_APPEND);
-			OutputStreamWriter outputWriter=new OutputStreamWriter(fileout);
-			outputWriter.write(text);
-			outputWriter.close();
-
-			//display file saved message
-			Toast.makeText(getBaseContext(), "File saved successfully!",
-					Toast.LENGTH_SHORT).show();
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		initDevListAdapter();
-	}
-
-	// Read text from file
-	public void initDevListAdapter() {
-		String text = "";
-
-			try {
-				InputStream inputStream = openFileInput("devices.txt");
-
-				if ( inputStream != null ) {
-					InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-					BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-					String receiveString = "";
-					StringBuilder stringBuilder = new StringBuilder();
-
-					while ( (receiveString = bufferedReader.readLine()) != null ) {
-						stringBuilder.append(receiveString);
-					}
-
-					inputStream.close();
-					text = stringBuilder.toString();
-
-					String[] devicesInfo = text.split("\n");
-					for (String device: devicesInfo){
-						mDevListAdapter.addDevice(device.substring(0, 17), device.substring(17));
-					}
-				}
-			}
-			catch (FileNotFoundException e) {
-				Log.e("login activity", "File not found: " + e.toString());
-			} catch (IOException e) {
-				Log.e("login activity", "Can not read file: " + e.toString());
-			}
-
-			Toast.makeText(getBaseContext(), "File read",Toast.LENGTH_SHORT).show();
-
-
 
 	}
 
@@ -162,7 +99,7 @@ public class MainActivity extends Activity {
 
 	@Override
 	public void onDestroy() {
-//		unregisterReceiver(mReceiver);
+		unregisterReceiver(bluetoothHandler.getBroadcastReceiver());
 
 		super.onDestroy();
 	}

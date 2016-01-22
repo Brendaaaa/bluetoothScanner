@@ -3,7 +3,6 @@ package com.scan.out;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -15,12 +14,12 @@ import android.widget.Toast;
 
 public class BluetoothHandler {
 	// scan bluetooth device
-	private BluetoothAdapter mBluetoothAdapter;
+	private BluetoothAdapter bluetoothAdapter;
 	private boolean mEnabled = false;
 	private boolean mScanning = false;
-	private static final long SCAN_PERIOD = 2000;
-	private BLEDeviceListAdapter mDevListAdapter;
-	private ProgressDialog mProgressDlg;
+	private static final long SCAN_PERIOD = 12000;
+	private DeviceListAdapter deviceListAdapter;
+	private ProgressDialog progressDialog;
 
 	private OnScanListener onScanListener;
 	
@@ -35,42 +34,40 @@ public class BluetoothHandler {
     	onScanListener = l;
     }
     
-	public BluetoothHandler(Context context, BLEDeviceListAdapter devListAdapter) {
+	public BluetoothHandler(Context context, DeviceListAdapter devListAdapter) {
 		// TODO Auto-generated constructor stub
 		this.context = context;
-		mDevListAdapter = devListAdapter;
-		mBluetoothAdapter = null;
-		mProgressDlg = new ProgressDialog(this.context);
+		deviceListAdapter = devListAdapter;
+		bluetoothAdapter = null;
+		progressDialog = new ProgressDialog(this.context);
 
-		mProgressDlg.setMessage("Scanning...");
-		mProgressDlg.setCancelable(false);
-		mProgressDlg.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+		progressDialog.setMessage("Scanning...");
+		progressDialog.setCancelable(false);
+		progressDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
 				dialog.dismiss();
 
-				mBluetoothAdapter.cancelDiscovery();
+				bluetoothAdapter.cancelDiscovery();
 			}
 		});
 
 		IntentFilter filter = new IntentFilter();
-
 		filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
 		filter.addAction(BluetoothDevice.ACTION_FOUND);
 		filter.addAction(BluetoothDevice.EXTRA_RSSI);
 		filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
 		filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+		((MainActivity) context).registerReceiver(broadcastReceiver, filter);
 
 
-		((MainActivity) context).registerReceiver(mReceiver, filter);
-
-
-		if(!isSupportBle()){
+		if(!supportsBle()){
 			showUnsupported();
-			//Toast.makeText(context, "your device not support BLE!", Toast.LENGTH_SHORT).show();
+			showMessage("your device not support BLE!");
 			((MainActivity)context).finish();
 			return ;
 		}
+
 		// open bluetooth
         if (!getBluetoothAdapter().isEnabled()) { 
             Intent mIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE); 
@@ -80,23 +77,22 @@ public class BluetoothHandler {
         }
 	}
 	
-	public BLEDeviceListAdapter getDeviceListAdapter(){
-		return mDevListAdapter;
+	public DeviceListAdapter getDeviceListAdapter(){
+		return deviceListAdapter;
 	} 
 
-	public boolean isSupportBle(){
+	public boolean supportsBle(){
 		// is support 4.0 ?
-		final BluetoothManager bluetoothManager = (BluetoothManager)
-				context.getSystemService(Context.BLUETOOTH_SERVICE);
-		mBluetoothAdapter = bluetoothManager.getAdapter();	
-		if (mBluetoothAdapter == null) 
+//		final BluetoothManager bluetoothManager = (BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
+		bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+		if (bluetoothAdapter == null)
 			return false;
 		else
 			return true;			
 	}
 	
 	public BluetoothAdapter getBluetoothAdapter(){
-		return mBluetoothAdapter;
+		return bluetoothAdapter;
 	}
 	
 	public void setEnabled(boolean enabled){
@@ -114,8 +110,8 @@ public class BluetoothHandler {
 			// TODO Auto-generated method stub
 			super.handleMessage(msg);
 			if(msg.obj != null){
-				mDevListAdapter.addDevice((BluetoothScanInfo) msg.obj);
-				mDevListAdapter.notifyDataSetChanged();
+				deviceListAdapter.addDevice((BluetoothScanInfo) msg.obj);
+				deviceListAdapter.notifyDataSetChanged();
 			}
 		}
     };
@@ -123,85 +119,64 @@ public class BluetoothHandler {
     // scan device
  	public void scanLeDevice(boolean enable) {
  		if (enable) {
- 			mDevListAdapter.clearDevice();
- 			mDevListAdapter.notifyDataSetChanged();
+ 			deviceListAdapter.clearList();
+ 			deviceListAdapter.notifyDataSetChanged();
 
 			// Stops scanning after a pre-defined scan period
 			mHandler.postDelayed(new Runnable() {
  			@Override
  				public void run() {
 // 					mScanning = false;
- 					mBluetoothAdapter.stopLeScan(mLeScanCallback);
+// 					bluetoothAdapter.stopLeScan(mLeScanCallback);
  					if(onScanListener != null){
  		        		onScanListener.onScanFinished();
  		        	}
-					mBluetoothAdapter.startDiscovery();
+					bluetoothAdapter.startDiscovery();
  				}
  			}, SCAN_PERIOD);
 
  			mScanning = true;
- 			mBluetoothAdapter.startLeScan(mLeScanCallback);
+// 			bluetoothAdapter.startLeScan(mLeScanCallback);
  		} else {
 // 			mScanning = false;
- 			mBluetoothAdapter.stopLeScan(mLeScanCallback);
-			mBluetoothAdapter.startDiscovery();
+// 			bluetoothAdapter.stopLeScan(mLeScanCallback);
+			bluetoothAdapter.startDiscovery();
 		}
  	}
- 	
- 	public boolean isScanning(){
- 		return mScanning;
- 	}
- 	
- 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-        @Override
-        public void onLeScan(final BluetoothDevice device, final int rssi,
-                final byte[] scanRecord) {
-        	
-        	if(onScanListener != null){
-        		onScanListener.onScan(device, rssi, scanRecord);
-        	}
-        	
-            ((MainActivity)context).runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                	Message msg = new Message();
-                	BluetoothScanInfo info = new BluetoothScanInfo();
-                	info.device = device;
-                	info.rssi = rssi;
-                	info.scanRecord = scanRecord;
-                	msg.obj = info;
-                	mHandler.sendMessage(msg);
-                }
-            });      
-        }
-    };
+
+// 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+//        @Override
+//        public void onLeScan(final BluetoothDevice device, final int rssi,
+//                final byte[] scanRecord) {
+//
+//        	if(onScanListener != null){
+//        		onScanListener.onScan(device, rssi, scanRecord);
+//        	}
+//
+//            ((MainActivity)context).runOnUiThread(new Runnable() {
+//                @Override
+//                public void run() {
+//                	Message msg = new Message();
+//                	BluetoothScanInfo info = new BluetoothScanInfo();
+//                	info.device = device;
+//                	info.rssi = rssi;
+//                	msg.obj = info;
+//                	mHandler.sendMessage(msg);
+//                }
+//            });
+//        }
+//    };
     
     public class BluetoothScanInfo{
     	public BluetoothDevice device;
     	public int rssi;
-    	public byte[] scanRecord;
     };
-    
-    public static double calculateAccuracy(int txPower, double rssi) {
-    	if (rssi == 0) {
-    		return -1.0; // if we cannot determine accuracy, return -1.
-    	}
-
-    	double ratio = rssi*1.0/txPower;
-    	if (ratio < 1.0) {
-    		return Math.pow(ratio,10);
-    	}
-    	else {
-    		double accuracy =  (0.89976)*Math.pow(ratio,7.7095) + 0.111;    
-    		return accuracy;
-    	}
-    }  
 
 	private void showMessage(String str){
 		Toast.makeText(((MainActivity) context), str, Toast.LENGTH_SHORT).show();
 	}
 
-	private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+	private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
 			String action = intent.getAction();
 
@@ -212,19 +187,10 @@ public class BluetoothHandler {
 					showMessage("Enabled");
 				}
 			} else if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
-//				mDeviceList = new ArrayList<BluetoothDevice>();
-
-				mProgressDlg.show();
+				progressDialog.show();
 			} else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-				mProgressDlg.dismiss();
+				progressDialog.dismiss();
 				mScanning = false;
-
-
-//				Intent newIntent = new Intent(MainActivity.this, DeviceListActivity.class);
-
-//				newIntent.putParcelableArrayListExtra("device.list", mDeviceList);
-
-//				startActivity(newIntent);
 			} else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
 				final BluetoothDevice device = (BluetoothDevice)intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
@@ -235,19 +201,26 @@ public class BluetoothHandler {
 					public void run() {
 						Message msg = new Message();
 						BluetoothScanInfo info = new BluetoothScanInfo();
+						System.out.println("name  " + device.getName());
 						info.device = device;
 						info.rssi = rssi;
-						info.scanRecord = null;
 						msg.obj = info;
 						mHandler.sendMessage(msg);
 					}
 				});
 
-				showMessage("Found device " + device.getName());
+				if (device.getName() == null){
+					showMessage("Found other device");
+				} else {
+					showMessage("Found device: " + device.getName());
+				}
 			}
 		}
 	};
 
+	public BroadcastReceiver getBroadcastReceiver(){
+		return broadcastReceiver;
+	}
 
 	private void showUnsupported() {
 		showMessage("Bluetooth is unsupported by this device");
