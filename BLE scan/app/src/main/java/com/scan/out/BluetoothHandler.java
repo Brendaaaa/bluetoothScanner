@@ -3,6 +3,7 @@ package com.scan.out;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -83,7 +84,7 @@ public class BluetoothHandler {
 
 	public boolean supportsBle(){
 		// is support 4.0 ?
-//		final BluetoothManager bluetoothManager = (BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
+		final BluetoothManager bluetoothManager = (BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
 		bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		if (bluetoothAdapter == null)
 			return false;
@@ -127,7 +128,7 @@ public class BluetoothHandler {
  			@Override
  				public void run() {
 // 					mScanning = false;
-// 					bluetoothAdapter.stopLeScan(mLeScanCallback);
+ 					bluetoothAdapter.stopLeScan(mLeScanCallback);
  					if(onScanListener != null){
  		        		onScanListener.onScanFinished();
  		        	}
@@ -136,36 +137,36 @@ public class BluetoothHandler {
  			}, SCAN_PERIOD);
 
  			mScanning = true;
-// 			bluetoothAdapter.startLeScan(mLeScanCallback);
+ 			bluetoothAdapter.startLeScan(mLeScanCallback);
  		} else {
 // 			mScanning = false;
-// 			bluetoothAdapter.stopLeScan(mLeScanCallback);
+ 			bluetoothAdapter.stopLeScan(mLeScanCallback);
 			bluetoothAdapter.startDiscovery();
 		}
  	}
 
-// 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-//        @Override
-//        public void onLeScan(final BluetoothDevice device, final int rssi,
-//                final byte[] scanRecord) {
-//
-//        	if(onScanListener != null){
-//        		onScanListener.onScan(device, rssi, scanRecord);
-//        	}
-//
-//            ((MainActivity)context).runOnUiThread(new Runnable() {
-//                @Override
-//                public void run() {
-//                	Message msg = new Message();
-//                	BluetoothScanInfo info = new BluetoothScanInfo();
-//                	info.device = device;
-//                	info.rssi = rssi;
-//                	msg.obj = info;
-//                	mHandler.sendMessage(msg);
-//                }
-//            });
-//        }
-//    };
+ 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(final BluetoothDevice device, final int rssi,
+                final byte[] scanRecord) {
+
+        	if(onScanListener != null){
+        		onScanListener.onScan(device, rssi, scanRecord);
+        	}
+
+            ((MainActivity)context).runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                	Message msg = new Message();
+                	BluetoothScanInfo info = new BluetoothScanInfo();
+                	info.device = device;
+                	info.rssi = rssi;
+                	msg.obj = info;
+                	mHandler.sendMessage(msg);
+                }
+            });
+        }
+    };
     
     public class BluetoothScanInfo{
     	public BluetoothDevice device;
